@@ -5,6 +5,30 @@ and replaying payloads/values in HTTP requests and responses — the
 **Observe → Extract → Remember → Categorize → Modify → Generate → Replay → Analyze** workflow, all
 from one tab.
 
+## What's new in v1.8.1
+
+**Bug fix, from direct feedback: "when intercept is on, even after forwarding all requests, the web
+page keeps loading."**
+
+- **Root cause**: with Intercept ON and no "Break On" conditions configured (the out-of-the-box
+  default), *every single request got held* - including every CSS/JS/image/font/font-map a page
+  loads. A real page load fires dozens of these, so new held items kept arriving faster than they
+  could be clicked through - the pending queue would empty out for a moment and immediately refill,
+  making the page look like it never finishes no matter how much forwarding you do. This mirrors why
+  real Burp Suite ships a default filter excluding static content from its own Proxy interception
+  rules - this extension had no equivalent.
+- **Fix: new "Skip static assets" checkbox** (Intercept bar, on by default). While enabled and no
+  explicit Break On condition is configured, requests/responses for common static-asset extensions
+  (js, css, images, fonts, media, sourcemaps) are auto-forwarded without ever being held, so the
+  pending queue only fills with things actually worth looking at - HTML, API/XHR calls, forms, and
+  so on. The moment you add any Break On condition of your own, this skip steps aside completely and
+  defers entirely to your configured rules (so a rule deliberately targeting a `.js` file still
+  works).
+- **Extra safety net**: history trimming (once the 2000-row cap is hit) could previously evict the
+  oldest row even if it was still WAITING on a Forward/Drop decision, abandoning its held network
+  thread forever - the same class of bug fixed twice in v1.8.0 for Clear/Delete Row. Now closed here
+  too: a still-pending row is never silently evicted, no matter how old.
+
 ## What's new in v1.8.0
 
 **Intercept UX fixes, from direct feedback: the tab now behaves like a real pending-action queue,

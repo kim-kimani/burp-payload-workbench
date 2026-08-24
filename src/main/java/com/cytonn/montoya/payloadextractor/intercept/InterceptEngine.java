@@ -17,6 +17,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 /**
  * A genuine, Montoya-native interception engine: implements {@link HttpHandler} and, when holding
@@ -51,7 +52,20 @@ public final class InterceptEngine implements HttpHandler {
     private volatile boolean masterOn = false;
     private volatile boolean interceptRequests = true;
     private volatile boolean interceptResponses = false;
+    private volatile boolean skipStaticAssets = true;
     private volatile Listener listener;
+
+    /**
+     * Common static-asset extensions (JS/CSS/images/fonts/media/sourcemaps). A single page load can
+     * fire dozens of these; holding every one of them (which is what "intercept everything, no Break
+     * On rules configured" literally means) makes the page look like it never finishes loading no
+     * matter how many items the analyst forwards, because new ones keep arriving faster than they can
+     * be clicked through. Real Burp Suite ships the equivalent default filter in Proxy's own
+     * interception rules for exactly this reason.
+     */
+    private static final Pattern STATIC_ASSET_PATTERN = Pattern.compile(
+            "\\.(?:js|mjs|css|png|jpe?g|gif|svg|webp|avif|ico|bmp|woff2?|ttf|eot|otf|mp4|webm|ogg|mp3|wav|map)$",
+            Pattern.CASE_INSENSITIVE);
 
     public InterceptEngine(Logging logging) {
         this.logging = logging;
@@ -74,6 +88,19 @@ public final class InterceptEngine implements HttpHandler {
     public void setInterceptRequests(boolean v) { this.interceptRequests = v; }
     public boolean isInterceptResponses() { return interceptResponses; }
     public void setInterceptResponses(boolean v) { this.interceptResponses = v; }
+    public boolean isSkipStaticAssets() { return skipStaticAssets; }
+    public void setSkipStaticAssets(boolean v) { this.skipStaticAssets = v; }
+
+    /**
+     * True when {@code pathWithoutQuery} looks like a static asset (by extension) - only consulted
+     * when {@link #skipStaticAssets} is on AND there are no explicit "Break On" conditions configured
+     * (an explicit condition list means the analyst has already deliberately scoped what to hold, so
+     * this blanket skip steps aside rather than second-guessing a rule that might target a .js file
+     * on purpose).
+     */
+    public static boolean isLikelyStaticAsset(String pathWithoutQuery) {
+        return pathWithoutQuery != null && STATIC_ASSET_PATTERN.matcher(pathWithoutQuery).find();
+    }
 
     /**
      * Clears every non-pinned history row. Any of them still WAITING on a Forward/Drop decision is
@@ -136,7 +163,8 @@ public final class InterceptEngine implements HttpHandler {
     @Override
     public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
         String host = requestToBeSent.httpService() != null ? requestToBeSent.httpService().host() : "";
-        boolean isNewEndpoint = markEndpointSeen(requestToBeSent.method(), requestToBeSent.pathWithoutQuery());
+        String pathWithoutQuery = requestToBeSent.pathWithoutQuery();
+        boolean isNewEndpoint = markEndpointSeen(requestToBeSent.method(), pathWithoutQuery);
         boolean isNewParameter = markParamsSeen(requestToBeSent);
 
         HttpRequest afterRules = safeApplyRequestRules(requestToBeSent, host);
@@ -145,7 +173,9 @@ public final class InterceptEngine implements HttpHandler {
         addToHistory(msg);
         byMessageId.put(requestToBeSent.messageId(), msg);
 
-        boolean shouldHold = masterOn && interceptRequests && matchesAnyRequestCondition(afterRules, host, isNewEndpoint, isNewParameter);
+        boolean skippedAsStatic = skipStaticAssets && conditions.isEmpty() && isLikelyStaticAsset(pathWithoutQuery);
+        boolean shouldHold = masterOn && interceptRequests && !skippedAsStatic
+                && matchesAnyRequestCondition(afterRules, host, isNewEndpoint, isNewParameter);
 
         if (!shouldHold) {
             boolean changed = !afterRules.toString().equals(requestToBeSent.toString());
@@ -201,7 +231,9 @@ public final class InterceptEngine implements HttpHandler {
         HttpResponse afterRules = safeApplyResponseRules(responseReceived, host, path);
         long sizeBytes = afterRules.toByteArray().length();
 
-        boolean shouldHold = masterOn && interceptResponses && matchesAnyResponseCondition(afterRules, host, sizeBytes);
+        boolean skippedAsStatic = skipStaticAssets && conditions.isEmpty() && isLikelyStaticAsset(path);
+        boolean shouldHold = masterOn && interceptResponses && !skippedAsStatic
+                && matchesAnyResponseCondition(afterRules, host, sizeBytes);
 
         if (!shouldHold) {
             if (msg != null) {
@@ -313,10 +345,18 @@ public final class InterceptEngine implements HttpHandler {
         history.add(msg);
         if (history.size() > MAX_HISTORY) {
             for (InterceptedMessage m : history) {
-                if (!m.isPinned()) {
-                    history.remove(m);
-                    break;
+                if (m.isPinned()) {
+                    continue;
                 }
+                CompletableFuture<InterceptDecision> pending = m.pendingDecision();
+                if (pending != null && !pending.isDone()) {
+                    // Still WAITING on a real network thread - never silently evict it here, that
+                    // would abandon its future forever (same hazard clearHistory()/deleteSelectedRow()
+                    // already guard against). Let it be trimmed later once it's resolved.
+                    continue;
+                }
+                history.remove(m);
+                break;
             }
         }
         Listener l = listener;

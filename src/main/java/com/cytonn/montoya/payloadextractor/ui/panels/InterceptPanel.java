@@ -57,6 +57,7 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
     private final JToggleButton masterToggle = new JToggleButton("INTERCEPT: OFF");
     private final JCheckBox interceptRequestsBox = new JCheckBox("Requests", true);
     private final JCheckBox interceptResponsesBox = new JCheckBox("Responses", false);
+    private final JCheckBox skipStaticBox = new JCheckBox("Skip static assets", true);
     private final JCheckBox automaticEditorBox = new JCheckBox("Automatic Editor");
     private final JButton forwardButton = new JButton("Forward");
     private final JButton forwardEditButton = new JButton("Forward & Edit");
@@ -158,6 +159,13 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         interceptResponsesBox.addActionListener(e -> engine.setInterceptResponses(interceptResponsesBox.isSelected()));
         bar.add(interceptRequestsBox);
         bar.add(interceptResponsesBox);
+
+        skipStaticBox.setSelected(engine.isSkipStaticAssets());
+        skipStaticBox.setToolTipText("<html>Don't hold common static assets (JS, CSS, images, fonts, media) when no \"Break On\" "
+                + "conditions are configured - otherwise every single page resource has to be manually forwarded, which makes a "
+                + "page load look like it never finishes. Has no effect once you add an explicit Break On condition.</html>");
+        skipStaticBox.addActionListener(e -> engine.setSkipStaticAssets(skipStaticBox.isSelected()));
+        bar.add(skipStaticBox);
 
         automaticEditorBox.setSelected(engine.ruleEngine().isEnabled());
         automaticEditorBox.addActionListener(e -> {
