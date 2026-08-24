@@ -12,6 +12,8 @@ import com.cytonn.montoya.payloadextractor.intercept.InterceptEngine;
 import com.cytonn.montoya.payloadextractor.intercept.InterceptedMessage;
 import com.cytonn.montoya.payloadextractor.ui.InterceptConditionDialog;
 import com.cytonn.montoya.payloadextractor.ui.ModificationRuleDialog;
+import com.cytonn.montoya.payloadextractor.variables.Variable;
+import com.cytonn.montoya.payloadextractor.variables.VariableResolver;
 
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
@@ -90,8 +92,11 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         requestPanel.add(requestEditor.uiComponent(), BorderLayout.CENTER);
         JButton ruleFromReqSelection = new JButton("Create Rule from Selection");
         ruleFromReqSelection.addActionListener(e -> createRuleFromSelection(requestEditor.selection().map(s -> s.contents().toString()).orElse(null), InterceptDirection.REQUEST));
+        JButton varFromReqSelection = new JButton("Extract Selected as Variable");
+        varFromReqSelection.addActionListener(e -> extractSelectionAsVariable(requestEditor.selection().map(s -> s.contents().toString()).orElse(null)));
         JPanel reqSouth = new JPanel(new FlowLayout(FlowLayout.LEFT));
         reqSouth.add(ruleFromReqSelection);
+        reqSouth.add(varFromReqSelection);
         requestPanel.add(reqSouth, BorderLayout.SOUTH);
 
         JPanel responsePanel = new JPanel(new BorderLayout());
@@ -99,8 +104,11 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         responsePanel.add(responseEditor.uiComponent(), BorderLayout.CENTER);
         JButton ruleFromRespSelection = new JButton("Create Rule from Selection");
         ruleFromRespSelection.addActionListener(e -> createRuleFromSelection(responseEditor.selection().map(s -> s.contents().toString()).orElse(null), InterceptDirection.RESPONSE));
+        JButton varFromRespSelection = new JButton("Extract Selected as Variable");
+        varFromRespSelection.addActionListener(e -> extractSelectionAsVariable(responseEditor.selection().map(s -> s.contents().toString()).orElse(null)));
         JPanel respSouth = new JPanel(new FlowLayout(FlowLayout.LEFT));
         respSouth.add(ruleFromRespSelection);
+        respSouth.add(varFromRespSelection);
         JButton diffButton = new JButton("Original vs Modified...");
         diffButton.addActionListener(e -> showDiff());
         respSouth.add(diffButton);
@@ -317,6 +325,10 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         InterceptDecision decision;
         if (selected.holdPhase() == InterceptedMessage.HoldPhase.REQUEST) {
             HttpRequest req = useEditorContent ? requestEditor.getRequest() : selected.currentRequest();
+            if (useEditorContent) {
+                // Forward & Edit commits whatever the analyst typed, including any {{VARIABLE}} placeholders - resolve them now, right before the request actually goes out.
+                req = VariableResolver.resolveInRequest(req, state.variableStore());
+            }
             decision = InterceptDecision.forwardRequest(req);
         } else {
             HttpResponse resp = useEditorContent ? responseEditor.getResponse() : selected.currentResponse();
@@ -414,6 +426,24 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
             return;
         }
         ModificationRuleDialog.showDialogForSelection(this, state, selectedText, direction);
+    }
+
+    private void extractSelectionAsVariable(String selectedText) {
+        if (selectedText == null || selectedText.isBlank()) {
+            JOptionPane.showMessageDialog(this, "Select some text in the editor first.", "Nothing selected", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String suggested = Variable.normalizeName(selected != null ? selected.path() : "");
+        String name = (String) JOptionPane.showInputDialog(this, "Variable name (used as {{NAME}} in future requests):",
+                "Extract as Variable", JOptionPane.PLAIN_MESSAGE, null, null, suggested);
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        String host = selected != null ? selected.host() : null;
+        Variable v = state.variableStore().upsert(name, selectedText, host);
+        state.persistVariables();
+        JOptionPane.showMessageDialog(this, "Saved as {{" + v.name() + "}}. Use it in any later request's path, headers, cookies, or body via Forward & Edit.",
+                "Variable saved", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void showDiff() {

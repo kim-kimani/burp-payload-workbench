@@ -4,6 +4,8 @@ import burp.api.montoya.http.Http;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import com.cytonn.montoya.payloadextractor.modifier.RequestModifier;
+import com.cytonn.montoya.payloadextractor.variables.VariableResolver;
+import com.cytonn.montoya.payloadextractor.variables.VariableStore;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,13 +32,20 @@ public final class ReplayEngine {
 
     private final Http http;
     private final ReplayListener listener;
+    private final VariableStore variableStore;
 
     private volatile State state = State.IDLE;
     private final Object pauseLock = new Object();
 
     public ReplayEngine(Http http, ReplayListener listener) {
+        this(http, listener, null);
+    }
+
+    /** @param variableStore when non-null, {@code {{NAME}}} placeholders in the substituted request are resolved (see {@link VariableResolver}) right before each request is sent. */
+    public ReplayEngine(Http http, ReplayListener listener, VariableStore variableStore) {
         this.http = http;
         this.listener = listener == null ? new ReplayListener() {} : listener;
+        this.variableStore = variableStore;
     }
 
     public void run(ReplayConfig config) {
@@ -169,6 +178,9 @@ public final class ReplayEngine {
         long start = System.currentTimeMillis();
         try {
             HttpRequest request = RequestModifier.substituteSingleValue(config.baseRequest(), config.targetField(), value);
+            if (variableStore != null) {
+                request = VariableResolver.resolveInRequest(request, variableStore);
+            }
             HttpRequestResponse rr = http.sendRequest(request);
             long elapsed = System.currentTimeMillis() - start;
             return ReplayStepResult.success(index, value, rr, elapsed);

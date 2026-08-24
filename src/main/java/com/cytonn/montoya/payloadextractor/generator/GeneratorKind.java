@@ -9,7 +9,12 @@ public enum GeneratorKind {
     CUSTOM_PATTERN("Custom Pattern"),
     REGEX("Regex-based"),
     WORDLIST("Wordlist / Collection"),
-    CUSTOM_SCRIPT("Custom Script");
+    CUSTOM_SCRIPT("Custom Script"),
+    TIMESTAMP("Timestamp"),
+    HEX("Hex"),
+    BASE64("Base64"),
+    EMAIL("Email"),
+    PHONE("Phone");
 
     private final String displayName;
 

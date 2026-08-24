@@ -10,6 +10,7 @@ import com.cytonn.montoya.payloadextractor.history.HistoryManager;
 import com.cytonn.montoya.payloadextractor.intercept.InterceptEngine;
 import com.cytonn.montoya.payloadextractor.modifier.RuleEngine;
 import com.cytonn.montoya.payloadextractor.ui.panels.MainPanel;
+import com.cytonn.montoya.payloadextractor.variables.VariableStore;
 
 /**
  * The extension's single shared state object: the live {@link MontoyaApi} handle, the persistent
@@ -27,6 +28,7 @@ public final class ExtensionState {
     private final HistoryManager historyManager;
     private final GeneratorRegistry generatorRegistry;
     private final InterceptEngine interceptEngine;
+    private final VariableStore variableStore;
     private AiSettings aiSettings;
 
     private MainPanel mainPanel;
@@ -49,6 +51,7 @@ public final class ExtensionState {
         interceptEngine.ruleEngine().setEnabled(restoredRules.isEnabled());
         interceptEngine.ruleEngine().rules().addAll(restoredRules.rules());
         interceptEngine.conditions().addAll(persistenceManager.loadInterceptConditions());
+        this.variableStore = persistenceManager.loadVariableStore();
     }
 
     public MontoyaApi api() { return api; }
@@ -58,6 +61,7 @@ public final class ExtensionState {
     public HistoryManager historyManager() { return historyManager; }
     public GeneratorRegistry generatorRegistry() { return generatorRegistry; }
     public InterceptEngine interceptEngine() { return interceptEngine; }
+    public VariableStore variableStore() { return variableStore; }
 
     public AiSettings aiSettings() { return aiSettings; }
     public void setAiSettings(AiSettings aiSettings) {
@@ -110,11 +114,17 @@ public final class ExtensionState {
         persistenceManager.saveRawAiSettingsJson(aiSettings.toJson());
         persistenceManager.saveRawRuleEngineJson(interceptEngine.ruleEngine().toJson());
         persistenceManager.saveInterceptConditions(interceptEngine.conditions());
+        persistenceManager.saveVariableStore(variableStore);
     }
 
     /** Persists just the intercept rules/conditions - called whenever either changes, same pattern as the payload database. */
     public void persistInterceptConfig() {
         persistenceManager.saveRawRuleEngineJson(interceptEngine.ruleEngine().toJson());
         persistenceManager.saveInterceptConditions(interceptEngine.conditions());
+    }
+
+    /** Persists just the variable store - called whenever a variable is extracted/edited/removed. */
+    public void persistVariables() {
+        persistenceManager.saveVariableStore(variableStore);
     }
 }

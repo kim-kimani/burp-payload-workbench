@@ -153,6 +153,7 @@ public final class PayloadFieldComponent extends JPanel {
         controls.add(smallButton("Type", "Manually tell the extension what kind of value this field holds (affects generator defaults and grouping)", e -> showCategoryMenu()));
         controls.add(smallButton("Gen", "Generate payload values for this field", e -> hooks.onGenerateRequested(field)));
         controls.add(smallButton("Play▶", "Replay this field with a generated/remembered/file value list", e -> hooks.onReplayRequested(field)));
+        controls.add(smallButton("Var", "Save this field's current value as a {{VARIABLE}} usable in later requests", e -> hooks.onExtractVariableRequested(field)));
         controls.add(smallButton("Dup", "Duplicate this field", e -> hooks.onDuplicateRequested(field)));
 
         JButton upButton = smallButton("▲", "Move up within its group", e -> hooks.onMoveUpRequested(field));

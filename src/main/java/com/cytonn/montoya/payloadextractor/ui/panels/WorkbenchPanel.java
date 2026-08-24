@@ -18,6 +18,8 @@ import com.cytonn.montoya.payloadextractor.ui.AddFieldDialog;
 import com.cytonn.montoya.payloadextractor.ui.GeneratorDialog;
 import com.cytonn.montoya.payloadextractor.ui.ReplayConfigDialog;
 import com.cytonn.montoya.payloadextractor.util.JsonNode;
+import com.cytonn.montoya.payloadextractor.variables.Variable;
+import com.cytonn.montoya.payloadextractor.variables.VariableResolver;
 
 import javax.swing.*;
 import java.awt.*;
@@ -324,6 +326,10 @@ public final class WorkbenchPanel extends JPanel implements WorkbenchHooks {
                 remember.setText("Remembered");
             });
             actions.add(remember);
+            JButton extractVar = new JButton("Extract Var");
+            extractVar.setToolTipText("Save this response value as a {{VARIABLE}} usable in later requests, e.g. /api/users/{{USER_ID}}");
+            extractVar.addActionListener(e -> extractAsVariable(f.currentValue(), f.name()));
+            actions.add(extractVar);
             row.add(actions, BorderLayout.EAST);
             responseFieldsContainer.add(row);
         }
@@ -413,7 +419,8 @@ public final class WorkbenchPanel extends JPanel implements WorkbenchHooks {
         statusLabel.setText("Sending modified request...");
         new Thread(() -> {
             try {
-                HttpRequestResponse result = state.api().http().sendRequest(composed);
+                HttpRequest resolved = VariableResolver.resolveInRequest(composed, state.variableStore());
+                HttpRequestResponse result = state.api().http().sendRequest(resolved);
                 SwingUtilities.invokeLater(() -> onSendCompleted(result));
             } catch (Exception ex) {
                 SwingUtilities.invokeLater(() -> {
@@ -569,6 +576,31 @@ public final class WorkbenchPanel extends JPanel implements WorkbenchHooks {
         collectionFor(field).setCategory(newCategory);
         state.persistenceManager().saveDatabase(state.database());
         rebuildRequestFieldsUi();
+    }
+
+    @Override
+    public void onExtractVariableRequested(ParsedField field) {
+        extractAsVariable(field.currentValue(), field.name());
+    }
+
+    /** Shared implementation for both the per-field "Var" button and the response-field row's "Extract Var" button. */
+    private void extractAsVariable(String value, String suggestedName) {
+        if (value == null || value.isBlank()) {
+            JOptionPane.showMessageDialog(this, "This field has no value to extract.", "Nothing to extract", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String suggested = Variable.normalizeName(suggestedName);
+        String name = (String) JOptionPane.showInputDialog(this, "Variable name (used as {{NAME}} in future requests):",
+                "Extract as Variable", JOptionPane.PLAIN_MESSAGE, null, null, suggested);
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        String host = originalRequestResponse != null && originalRequestResponse.httpService() != null
+                ? originalRequestResponse.httpService().host() : null;
+        Variable v = state.variableStore().upsert(name, value, host);
+        state.persistVariables();
+        JOptionPane.showMessageDialog(this, "Saved as {{" + v.name() + "}}. Use it in any later request's path, headers, cookies, or body.",
+                "Variable saved", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private static int indexOfById(List<ParsedField> fields, String id) {

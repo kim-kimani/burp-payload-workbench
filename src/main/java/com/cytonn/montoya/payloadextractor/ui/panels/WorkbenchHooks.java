@@ -50,4 +50,7 @@ public interface WorkbenchHooks {
 
     /** Manual categorization: "tell the extension this value belongs to type X" - reassigns both the field's and its backing collection's category. */
     void onCategoryReassigned(ParsedField field, String newCategory);
+
+    /** The "Var" button was clicked: prompt for a {@code {{NAME}}} and store this field's current value under it in the shared {@code VariableStore}. */
+    void onExtractVariableRequested(ParsedField field);
 }

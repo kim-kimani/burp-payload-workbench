@@ -6,6 +6,7 @@ import com.cytonn.montoya.payloadextractor.db.ImportExportManager;
 import com.cytonn.montoya.payloadextractor.db.PayloadCollection;
 import com.cytonn.montoya.payloadextractor.db.PayloadValue;
 import com.cytonn.montoya.payloadextractor.history.HistoryEntry;
+import com.cytonn.montoya.payloadextractor.mutation.VariationGenerator;
 import com.cytonn.montoya.payloadextractor.parser.ParsedField;
 import com.cytonn.montoya.payloadextractor.replay.ReplayConfig;
 import com.cytonn.montoya.payloadextractor.replay.ReplayEngine;
@@ -37,6 +38,7 @@ public final class ReplayConfigDialog extends JDialog {
     private final JRadioButton generateSource = new JRadioButton("Generate new values", true);
     private final JRadioButton collectionSource = new JRadioButton("Use remembered collection");
     private final JRadioButton fileSource = new JRadioButton("Load from file");
+    private final JRadioButton variationsSource = new JRadioButton("Smart variations of current value");
     private final JComboBox<PayloadCollection> collectionCombo = new JComboBox<>();
     private final JLabel valuesSummaryLabel = new JLabel("No values chosen yet");
     private List<String> chosenValues = new ArrayList<>();
@@ -76,6 +78,7 @@ public final class ReplayConfigDialog extends JDialog {
         group.add(generateSource);
         group.add(collectionSource);
         group.add(fileSource);
+        group.add(variationsSource);
 
         for (PayloadCollection c : state.database().allCollections()) {
             collectionCombo.addItem(c);
@@ -128,6 +131,18 @@ public final class ReplayConfigDialog extends JDialog {
         });
         fileRow.add(loadFileButton);
         sourcePanel.add(fileRow);
+
+        JPanel variationsRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        variationsRow.add(variationsSource);
+        JButton useVariationsButton = new JButton("Generate Variations");
+        useVariationsButton.setToolTipText("Boundary/neighbor values derived from the field's current value - e.g. 555 -> 556, 554, 0, -1, \"\"");
+        useVariationsButton.addActionListener(e -> {
+            variationsSource.setSelected(true);
+            chosenValues = VariationGenerator.variationsFor(targetField.currentValue());
+            valuesSummaryLabel.setText(chosenValues.size() + " variation(s) of \"" + targetField.currentValue() + "\"");
+        });
+        variationsRow.add(useVariationsButton);
+        sourcePanel.add(variationsRow);
         sourcePanel.add(valuesSummaryLabel);
 
         JPanel optionsPanel = new JPanel();
@@ -272,7 +287,7 @@ public final class ReplayConfigDialog extends JDialog {
                     resetButtons();
                 });
             }
-        });
+        }, state.variableStore());
 
         Thread worker = new Thread(() -> engine.run(config), "payload-extractor-replay");
         worker.setDaemon(true);

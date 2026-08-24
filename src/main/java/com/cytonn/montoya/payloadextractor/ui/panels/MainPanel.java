@@ -24,6 +24,7 @@ public final class MainPanel extends JPanel {
     private final WorkbenchPanel workbenchPanel;
     private final CollectionsPanel collectionsPanel;
     private final HistoryPanel historyPanel;
+    private final VariablesPanel variablesPanel;
 
     private final JCheckBox scopeOnlyCheckBox = new JCheckBox("Show only in-scope items");
     private final JComboBox<String> targetCombo = new JComboBox<>();
@@ -36,6 +37,7 @@ public final class MainPanel extends JPanel {
         workbenchPanel = new WorkbenchPanel(state);
         collectionsPanel = new CollectionsPanel(state);
         historyPanel = new HistoryPanel(state);
+        variablesPanel = new VariablesPanel(state);
         AiPanel aiPanel = new AiPanel(state);
         SettingsPanel settingsPanel = new SettingsPanel(state);
 
@@ -45,6 +47,7 @@ public final class MainPanel extends JPanel {
         tabs.addTab("Workbench", workbenchPanel);
         tabs.addTab("Payload Collections", collectionsPanel);
         tabs.addTab("History", historyPanel);
+        tabs.addTab("Variables", variablesPanel);
         tabs.addTab("AI Assistant", aiPanel);
         tabs.addTab("Settings", settingsPanel);
 
@@ -56,6 +59,8 @@ public final class MainPanel extends JPanel {
             } else if (selected == historyPanel) {
                 refreshTargetOptions();
                 historyPanel.refresh();
+            } else if (selected == variablesPanel) {
+                variablesPanel.refresh();
             }
         });
 

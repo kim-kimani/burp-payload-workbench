@@ -3,6 +3,7 @@ package com.cytonn.montoya.payloadextractor.db;
 import burp.api.montoya.persistence.PersistedObject;
 import com.cytonn.montoya.payloadextractor.intercept.InterceptCondition;
 import com.cytonn.montoya.payloadextractor.util.JsonNode;
+import com.cytonn.montoya.payloadextractor.variables.VariableStore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,7 @@ public final class PersistenceManager {
     private static final String KEY_AI_SETTINGS_JSON = "aiSettingsJson";
     private static final String KEY_RULE_ENGINE_JSON = "ruleEngineJson";
     private static final String KEY_INTERCEPT_CONDITIONS_JSON = "interceptConditionsJson";
+    private static final String KEY_VARIABLES_JSON = "variablesJson";
 
     private final PersistedObject store;
 
@@ -96,5 +98,17 @@ public final class PersistenceManager {
         }
         sb.append(']');
         store.setString(KEY_INTERCEPT_CONDITIONS_JSON, sb.toString());
+    }
+
+    public VariableStore loadVariableStore() {
+        try {
+            return VariableStore.fromJson(store.getString(KEY_VARIABLES_JSON));
+        } catch (Exception e) {
+            return new VariableStore();
+        }
+    }
+
+    public void saveVariableStore(VariableStore variableStore) {
+        store.setString(KEY_VARIABLES_JSON, variableStore.toJson());
     }
 }

@@ -5,6 +5,37 @@ and replaying payloads/values in HTTP requests and responses — the
 **Observe → Extract → Remember → Categorize → Modify → Generate → Replay → Analyze** workflow, all
 from one tab.
 
+## What's new in v1.6.0
+
+**Phase 2 of the interception/analysis-platform spec: Variables & Value Tracking (item 5) and
+Request Mutation/Variations (item 6).** Built entirely on what v1.5.0 shipped and what already
+existed - no second HTTP-sending engine, no second generator system.
+
+- **Variables**: extract any value - a Workbench field's current value, a response field, or any
+  selected text in Intercept's request/response editors - as a named `{{VARIABLE}}` via a new
+  "Var" / "Extract Var" / "Extract Selected as Variable" button next to the existing per-field and
+  per-selection actions. Type `{{USER_ID}}` into any later request's path, header, cookie, or body
+  (Workbench's Modified Request, a Replay run, or Intercept's Forward & Edit) and it resolves to the
+  stored value right before the request is actually sent - the placeholder text stays visible
+  everywhere until then, so nothing is silently rewritten mid-edit. `{{UUID}}`, `{{TIMESTAMP}}`, and
+  `{{RANDOM}}` are always dynamic (generated fresh on every use) and never need to be extracted by
+  hand. A new **Variables** tab lists everything extracted so far, with Add/Edit/Delete and a
+  **Track Value** search across History, Intercept history, and Payload Collections for every place
+  a value has been seen.
+- **Five new built-in generators** - Timestamp, Hex, Base64, Email, Phone - added to the existing
+  generator registry alongside Sequential/Random Integer, UUID, Random String, Custom Pattern,
+  Regex, Wordlist, and Custom Script, so they show up for free everywhere a generator kind is picked
+  (the Workbench's "Gen" button, Replay's payload source, and the new Variables tab's "Generate
+  Value").
+- **Generate Variations**: Replay's dialog (opened via each field's "Play▶" button) gained a third
+  payload-value source, "Smart variations of current value" - boundary/neighbor values derived from
+  the field's current value (e.g. `userId=555` → `556, 554, 0, -1, ""`), fed straight into the
+  existing Replay engine and its results table for the send-and-compare view (status, response size,
+  timing per variation) - no new send/compare engine, no new UI beyond one radio button.
+- `{{VARIABLE}}` resolution and variation generation are both plain, deterministic substitutions -
+  neither one claims or flags anything as a vulnerability; that judgment stays with the analyst
+  reading the comparison table.
+
 ## What's new in v1.5.0
 
 **Phase 1 of a large "turn this into an interception/analysis platform" spec.** This release adds a

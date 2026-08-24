@@ -18,6 +18,11 @@ public final class GeneratorRegistry {
         register(new RegexGenerator());
         register(new WordlistGenerator());
         register(new CustomScriptGenerator());
+        register(new TimestampGenerator());
+        register(new HexGenerator());
+        register(new Base64Generator());
+        register(new EmailGenerator());
+        register(new PhoneGenerator());
     }
 
     public void register(PayloadGenerator generator) {
