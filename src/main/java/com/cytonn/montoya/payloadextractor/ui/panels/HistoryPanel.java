@@ -3,6 +3,7 @@ package com.cytonn.montoya.payloadextractor.ui.panels;
 import com.cytonn.montoya.payloadextractor.ExtensionState;
 import com.cytonn.montoya.payloadextractor.history.HistoryEntry;
 import com.cytonn.montoya.payloadextractor.ui.HistoryDetailDialog;
+import com.cytonn.montoya.payloadextractor.ui.StyleKit;
 import com.cytonn.montoya.payloadextractor.util.ResponseSizeFormatter;
 
 import javax.swing.*;
@@ -44,6 +45,10 @@ public final class HistoryPanel extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
         JTable table = new JTable(model);
+        table.getColumnModel().getColumn(6).setCellRenderer(StyleKit.coloredCellRenderer(v -> {
+            if (v == null || v.toString().isBlank()) return StyleKit.neutral();
+            try { return StyleKit.statusColor(Integer.parseInt(v.toString())); } catch (NumberFormatException e) { return StyleKit.neutral(); }
+        }));
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {

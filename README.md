@@ -5,6 +5,36 @@ and replaying payloads/values in HTTP requests and responses — the
 **Observe → Extract → Remember → Categorize → Modify → Generate → Replay → Analyze** workflow, all
 from one tab.
 
+## What's new in v1.7.0
+
+**Phase 3 of the interception/analysis-platform spec: Response Analysis (item 7) and the Replay
+visual/functional overhaul (item 8).** Replay was "too black-and-white" and couldn't show you the
+actual request/response of any step it sent - both fixed by reusing what already existed rather
+than inventing new plumbing.
+
+- **Response Analysis**: a new `ResponseDiff` compares any two responses - status, response size
+  (flagged only above a real relative threshold, not on rounding noise), added/removed/changed
+  headers, and a full JSON structural diff (added/removed/changed fields by path, via the same
+  JSON engine the Workbench already uses for body editing). Every replay step is automatically
+  diffed against the run's first step as a baseline, and the results table gets a **Flag** column -
+  a colored ⚑ plus a one-line summary - whenever a step looks different enough to be worth a second
+  look. This is a heuristic, not a verdict: it never claims a vulnerability, only "worth a second
+  look" - the actual judgment stays with you. A live **Response size: n / avg / min / max** line
+  above the results table gives the size-history tracking the spec asked for.
+- **Compare Responses**: select any two rows in a replay run and open a full side-by-side view -
+  two real (reused) Montoya response editors plus the structured diff summary above them.
+- **Replay finally shows you the traffic**: selecting a result row now displays that step's actual
+  request and response in reused, read-only Montoya editors right below the table - previously
+  Replay had no way to inspect a step's real request/response at all, just the summary row.
+- **Visual consistency, not a new visual language**: HTTP methods and status codes now get the same
+  colored-bold treatment everywhere a table shows them - Replay's results, Intercept's REQUEST
+  HISTORY, and the History tab - via one shared `StyleKit`, not three different color schemes.
+- **New results-table actions** (right where the traffic already is, item 20's "consistent context
+  menu" applied to Replay): Compare Selected, Generate Variations From Selected, Send to Workbench,
+  Send to Intercept (adds the row to Intercept's own REQUEST HISTORY for further tagging/pinning
+  there), Repeat (also covers "Clone" - a fresh resend of the same request), Pin/Unpin, Add Note/Tag,
+  Delete, and Export CSV.
+
 ## What's new in v1.6.0
 
 **Phase 2 of the interception/analysis-platform spec: Variables & Value Tracking (item 5) and

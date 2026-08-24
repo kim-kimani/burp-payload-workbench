@@ -79,6 +79,22 @@ public final class InterceptEngine implements HttpHandler {
         history.removeIf(m -> !m.isPinned());
     }
 
+    /**
+     * Adds an already-completed request/response as a plain (non-held) REQUEST HISTORY row - the
+     * "Send to Intercept" action from Replay/Workbench, so traffic sent from elsewhere in the
+     * extension shows up in the same searchable/taggable/pinnable history view rather than only
+     * living in its originating tab.
+     */
+    public InterceptedMessage addObserved(HttpRequest request, HttpResponse response, String host) {
+        InterceptedMessage msg = new InterceptedMessage(idCounter.incrementAndGet(), request, host);
+        if (response != null) {
+            msg.setOriginalResponse(response);
+        }
+        msg.setState(InterceptState.AUTO_FORWARDED);
+        addToHistory(msg);
+        return msg;
+    }
+
     /** Forwards every currently-held message as-is - used when the analyst flips master Intercept off, and as an explicit "Forward All" safety valve. */
     public void forwardAllPending() {
         for (InterceptedMessage m : history) {

@@ -12,6 +12,7 @@ import com.cytonn.montoya.payloadextractor.intercept.InterceptEngine;
 import com.cytonn.montoya.payloadextractor.intercept.InterceptedMessage;
 import com.cytonn.montoya.payloadextractor.ui.InterceptConditionDialog;
 import com.cytonn.montoya.payloadextractor.ui.ModificationRuleDialog;
+import com.cytonn.montoya.payloadextractor.ui.StyleKit;
 import com.cytonn.montoya.payloadextractor.variables.Variable;
 import com.cytonn.montoya.payloadextractor.variables.VariableResolver;
 
@@ -73,6 +74,9 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.getColumnModel().getColumn(0).setPreferredWidth(45);
         table.getColumnModel().getColumn(1).setPreferredWidth(35);
+        // Same colored-bold method/status treatment as History and Replay - one visual language, not a Replay-only one.
+        table.getColumnModel().getColumn(4).setCellRenderer(StyleKit.coloredCellRenderer(v -> StyleKit.methodColor(v == null ? null : v.toString())));
+        table.getColumnModel().getColumn(5).setCellRenderer(StyleKit.coloredCellRenderer(v -> StyleKit.statusColor(v instanceof Integer ? (Integer) v : null)));
 
         JPanel top = new JPanel();
         top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
