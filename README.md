@@ -341,5 +341,5 @@ field genuinely gone.
 
 Configure an API key in the **Settings** tab to enable AI-suggested payload values (via the **AI
 Suggestions** tab or a field's Generate flow). The extension calls DeepSeek directly over
-`java.net.http.HttpClient` — this is a call the extension itself makes to an external service, kept
+`java.net.http.HttpClient`, this is the only call the extension itself makes to an external service, kept
 deliberately separate from Burp's own request-sending machinery used for target traffic.
