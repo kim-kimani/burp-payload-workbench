@@ -33,6 +33,9 @@ public final class HistoryDetailDialog {
         if (entry.statusCode() != null) {
             sb.append("Status: ").append(entry.statusCode()).append('\n');
         }
+        if (entry.responseSizeBytes() != null) {
+            sb.append("Response Size: ").append(com.cytonn.montoya.payloadextractor.util.ResponseSizeFormatter.format(entry.responseSizeBytes())).append('\n');
+        }
         sb.append('\n');
         sb.append("Old value:\n").append(entry.oldValue()).append('\n');
         sb.append('\n');

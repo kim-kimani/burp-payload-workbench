@@ -27,6 +27,12 @@ public final class ReplayStepResult {
         return new ReplayStepResult(stepIndex, payloadValue, rr, status, roundTripMillis, null);
     }
 
+    /** Response size in bytes, or {@code null} if no response was received. */
+    public Long responseSizeBytes() {
+        return (requestResponse != null && requestResponse.hasResponse())
+                ? (long) requestResponse.response().toByteArray().length() : null;
+    }
+
     public static ReplayStepResult failure(int stepIndex, String payloadValue, String error) {
         return new ReplayStepResult(stepIndex, payloadValue, null, null, 0, error);
     }

@@ -7,6 +7,8 @@ import com.cytonn.montoya.payloadextractor.db.PersistenceManager;
 import com.cytonn.montoya.payloadextractor.db.ScopeFilter;
 import com.cytonn.montoya.payloadextractor.generator.GeneratorRegistry;
 import com.cytonn.montoya.payloadextractor.history.HistoryManager;
+import com.cytonn.montoya.payloadextractor.intercept.InterceptEngine;
+import com.cytonn.montoya.payloadextractor.modifier.RuleEngine;
 import com.cytonn.montoya.payloadextractor.ui.panels.MainPanel;
 
 /**
@@ -24,6 +26,7 @@ public final class ExtensionState {
     private final ScopeFilter scopeFilter;
     private final HistoryManager historyManager;
     private final GeneratorRegistry generatorRegistry;
+    private final InterceptEngine interceptEngine;
     private AiSettings aiSettings;
 
     private MainPanel mainPanel;
@@ -40,6 +43,12 @@ public final class ExtensionState {
         this.historyManager = new HistoryManager();
         this.generatorRegistry = new GeneratorRegistry();
         this.aiSettings = AiSettings.fromJson(persistenceManager.loadRawAiSettingsJson());
+
+        this.interceptEngine = new InterceptEngine(api.logging());
+        RuleEngine restoredRules = RuleEngine.fromJson(persistenceManager.loadRawRuleEngineJson());
+        interceptEngine.ruleEngine().setEnabled(restoredRules.isEnabled());
+        interceptEngine.ruleEngine().rules().addAll(restoredRules.rules());
+        interceptEngine.conditions().addAll(persistenceManager.loadInterceptConditions());
     }
 
     public MontoyaApi api() { return api; }
@@ -48,6 +57,7 @@ public final class ExtensionState {
     public ScopeFilter scopeFilter() { return scopeFilter; }
     public HistoryManager historyManager() { return historyManager; }
     public GeneratorRegistry generatorRegistry() { return generatorRegistry; }
+    public InterceptEngine interceptEngine() { return interceptEngine; }
 
     public AiSettings aiSettings() { return aiSettings; }
     public void setAiSettings(AiSettings aiSettings) {
@@ -98,5 +108,13 @@ public final class ExtensionState {
         persistenceManager.saveDatabase(database);
         persistenceManager.saveScopeFilter(scopeFilter);
         persistenceManager.saveRawAiSettingsJson(aiSettings.toJson());
+        persistenceManager.saveRawRuleEngineJson(interceptEngine.ruleEngine().toJson());
+        persistenceManager.saveInterceptConditions(interceptEngine.conditions());
+    }
+
+    /** Persists just the intercept rules/conditions - called whenever either changes, same pattern as the payload database. */
+    public void persistInterceptConfig() {
+        persistenceManager.saveRawRuleEngineJson(interceptEngine.ruleEngine().toJson());
+        persistenceManager.saveInterceptConditions(interceptEngine.conditions());
     }
 }

@@ -23,6 +23,7 @@ public final class HistoryEntry {
     private final String notes;
     private final String host;
     private final Integer statusCode;
+    private Long responseSizeBytes;
 
     public HistoryEntry(String id, long timestampEpochMillis, Action action, String fieldName, FieldLocation location,
                          String oldValue, String newValue, String source, String notes) {
@@ -65,6 +66,8 @@ public final class HistoryEntry {
     public String notes() { return notes; }
     public String host() { return host; }
     public Integer statusCode() { return statusCode; }
+    public Long responseSizeBytes() { return responseSizeBytes; }
+    public HistoryEntry withResponseSizeBytes(Long bytes) { this.responseSizeBytes = bytes; return this; }
 
     @Override
     public String toString() {

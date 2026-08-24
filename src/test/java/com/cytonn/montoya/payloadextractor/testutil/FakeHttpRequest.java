@@ -13,23 +13,32 @@ import java.util.Map;
 
 /**
  * A minimal JDK dynamic-proxy stand-in for Montoya's {@code HttpRequest}, just enough to exercise
- * {@code RequestModifier}'s JSON body / cookie / header reconciliation paths and {@code ReplayEngine}
- * outside a live Burp instance (Montoya's own static factories require a live extension context
- * and throw when called standalone - see {@code ScriptEngineManagerTest}/README for details).
- * Any interface method not explicitly implemented here throws {@link UnsupportedOperationException}.
+ * {@code RequestModifier}'s JSON body / cookie / header reconciliation paths, {@code ReplayEngine},
+ * and {@code RuleEngine}'s header/body/path/query rules outside a live Burp instance (Montoya's own
+ * static factories require a live extension context and throw when called standalone - see
+ * {@code ScriptEngineManagerTest}/README for details). Any interface method not explicitly
+ * implemented here throws {@link UnsupportedOperationException}.
  */
 public final class FakeHttpRequest implements InvocationHandler {
 
     private final String body;
     private final Map<String, String> headers;
+    private final String httpMethod;
+    private final String path; // full path + query, e.g. "/api/users/555?x=1"
 
-    private FakeHttpRequest(String body, Map<String, String> headers) {
+    private FakeHttpRequest(String httpMethod, String path, String body, Map<String, String> headers) {
+        this.httpMethod = httpMethod;
+        this.path = path;
         this.body = body;
         this.headers = headers;
     }
 
     public static HttpRequest create(String body, Map<String, String> headers) {
-        FakeHttpRequest handler = new FakeHttpRequest(body, new LinkedHashMap<>(headers));
+        return create("GET", "/", body, headers);
+    }
+
+    public static HttpRequest create(String httpMethod, String path, String body, Map<String, String> headers) {
+        FakeHttpRequest handler = new FakeHttpRequest(httpMethod, path, body, new LinkedHashMap<>(headers));
         return (HttpRequest) Proxy.newProxyInstance(
                 FakeHttpRequest.class.getClassLoader(),
                 new Class<?>[]{HttpRequest.class},
@@ -43,7 +52,23 @@ public final class FakeHttpRequest implements InvocationHandler {
             case "bodyToString":
                 return body;
             case "withBody":
-                return create((String) args[0], headers);
+                return create(httpMethod, path, (String) args[0], headers);
+            case "method":
+                return httpMethod;
+            case "withMethod":
+                return create((String) args[0], path, body, headers);
+            case "path":
+                return path;
+            case "pathWithoutQuery": {
+                int q = path.indexOf('?');
+                return q >= 0 ? path.substring(0, q) : path;
+            }
+            case "query": {
+                int q = path.indexOf('?');
+                return q >= 0 ? path.substring(q + 1) : "";
+            }
+            case "withPath":
+                return create(httpMethod, (String) args[0], body, headers);
             case "headers": {
                 List<HttpHeader> list = new ArrayList<>();
                 for (Map.Entry<String, String> e : headers.entrySet()) {
@@ -78,18 +103,18 @@ public final class FakeHttpRequest implements InvocationHandler {
                     if (k.equalsIgnoreCase(hname)) { actualKey = k; break; }
                 }
                 copy.put(actualKey, hvalue);
-                return create(body, copy);
+                return create(httpMethod, path, body, copy);
             }
             case "withAddedHeader": {
                 Map<String, String> copy = new LinkedHashMap<>(headers);
                 copy.put((String) args[0], (String) args[1]);
-                return create(body, copy);
+                return create(httpMethod, path, body, copy);
             }
             case "withRemovedHeader": {
                 Map<String, String> copy = new LinkedHashMap<>(headers);
                 String hname = (String) args[0];
                 copy.keySet().removeIf(k -> k.equalsIgnoreCase(hname));
-                return create(body, copy);
+                return create(httpMethod, path, body, copy);
             }
             case "parameters":
                 return List.of();
@@ -102,7 +127,7 @@ public final class FakeHttpRequest implements InvocationHandler {
             case "hashCode":
                 return System.identityHashCode(proxy);
             case "toString":
-                return "FakeHttpRequest{body=" + body + ", headers=" + headers + "}";
+                return "FakeHttpRequest{" + httpMethod + " " + path + ", body=" + body + ", headers=" + headers + "}";
             default:
                 throw new UnsupportedOperationException("Not implemented in FakeHttpRequest: " + name);
         }

@@ -12,6 +12,7 @@ import com.cytonn.montoya.payloadextractor.replay.ReplayEngine;
 import com.cytonn.montoya.payloadextractor.replay.ReplayListener;
 import com.cytonn.montoya.payloadextractor.replay.ReplayOrder;
 import com.cytonn.montoya.payloadextractor.replay.ReplayStepResult;
+import com.cytonn.montoya.payloadextractor.util.ResponseSizeFormatter;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -49,7 +50,7 @@ public final class ReplayConfigDialog extends JDialog {
     private final JSpinner maxRequestsSpinner = new JSpinner(new SpinnerNumberModel(50, 1, 1000000, 1));
     private final JSpinner delaySpinner = new JSpinner(new SpinnerNumberModel(0, 0, 60000, 50));
 
-    private final DefaultTableModel resultsModel = new DefaultTableModel(new Object[]{"#", "Value", "Status", "ms", "Error"}, 0);
+    private final DefaultTableModel resultsModel = new DefaultTableModel(new Object[]{"#", "Value", "Status", "Response Size", "ms", "Error"}, 0);
     private final JLabel progressLabel = new JLabel("Idle");
     private final JButton startButton = new JButton("Start");
     private final JButton pauseButton = new JButton("Pause");
@@ -226,6 +227,7 @@ public final class ReplayConfigDialog extends JDialog {
                             result.stepIndex(),
                             result.payloadValue(),
                             result.statusCode() == null ? "-" : result.statusCode(),
+                            ResponseSizeFormatter.format(result.responseSizeBytes()),
                             result.roundTripMillis(),
                             result.error() == null ? "" : result.error()
                     });
@@ -234,7 +236,8 @@ public final class ReplayConfigDialog extends JDialog {
                             ? result.requestResponse().httpService().host() : null;
                     state.historyManager().record(HistoryEntry.of(HistoryEntry.Action.REPLAY_STEP, targetField.name(),
                             targetField.location(), targetField.originalValue(), result.payloadValue(),
-                            "replay", System.currentTimeMillis(), host, result.statusCode()));
+                            "replay", System.currentTimeMillis(), host, result.statusCode())
+                            .withResponseSizeBytes(result.responseSizeBytes()));
                 });
             }
 

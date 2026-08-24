@@ -3,6 +3,7 @@ package com.cytonn.montoya.payloadextractor.ui.panels;
 import com.cytonn.montoya.payloadextractor.ExtensionState;
 import com.cytonn.montoya.payloadextractor.history.HistoryEntry;
 import com.cytonn.montoya.payloadextractor.ui.HistoryDetailDialog;
+import com.cytonn.montoya.payloadextractor.util.ResponseSizeFormatter;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -29,7 +30,7 @@ public final class HistoryPanel extends JPanel {
     private static final DateTimeFormatter FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     private final ExtensionState state;
-    private final DefaultTableModel model = new DefaultTableModel(new Object[]{"#", "Time", "Host", "Parameter", "Original", "Test Value", "Status"}, 0) {
+    private final DefaultTableModel model = new DefaultTableModel(new Object[]{"#", "Time", "Host", "Parameter", "Original", "Test Value", "Status", "Response Size"}, 0) {
         @Override
         public boolean isCellEditable(int row, int column) {
             return false;
@@ -91,7 +92,8 @@ public final class HistoryPanel extends JPanel {
                     e.fieldName(),
                     truncate(e.oldValue()),
                     truncate(e.newValue()),
-                    e.statusCode() == null ? "" : e.statusCode().toString()
+                    e.statusCode() == null ? "" : e.statusCode().toString(),
+                    ResponseSizeFormatter.format(e.responseSizeBytes())
             });
         }
     }
@@ -102,7 +104,7 @@ public final class HistoryPanel extends JPanel {
         chooser.setSelectedFile(new File("payload-extractor-history.csv"));
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
-                StringBuilder sb = new StringBuilder("#,Time,Host,Parameter,Original,Test Value,Status\n");
+                StringBuilder sb = new StringBuilder("#,Time,Host,Parameter,Original,Test Value,Status,Response Size\n");
                 int i = 1;
                 for (HistoryEntry e : currentRows) {
                     sb.append(i++).append(',')
@@ -111,7 +113,8 @@ public final class HistoryPanel extends JPanel {
                       .append(csv(e.fieldName())).append(',')
                       .append(csv(e.oldValue())).append(',')
                       .append(csv(e.newValue())).append(',')
-                      .append(csv(e.statusCode() == null ? "" : e.statusCode().toString()))
+                      .append(csv(e.statusCode() == null ? "" : e.statusCode().toString())).append(',')
+                      .append(csv(ResponseSizeFormatter.format(e.responseSizeBytes())))
                       .append('\n');
                 }
                 Files.writeString(Path.of(chooser.getSelectedFile().getAbsolutePath()), sb.toString(), StandardCharsets.UTF_8);

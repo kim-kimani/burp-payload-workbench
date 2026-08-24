@@ -1,9 +1,0 @@
-/home/appsec/Downloads/BurpSuite/Extensions/Payload/src/test/java/com/cytonn/montoya/payloadextractor/db/PayloadDatabaseTest.java
-/home/appsec/Downloads/BurpSuite/Extensions/Payload/src/test/java/com/cytonn/montoya/payloadextractor/detector/NameNormalizerTest.java
-/home/appsec/Downloads/BurpSuite/Extensions/Payload/src/test/java/com/cytonn/montoya/payloadextractor/generator/GeneratorTest.java
-/home/appsec/Downloads/BurpSuite/Extensions/Payload/src/test/java/com/cytonn/montoya/payloadextractor/modifier/RequestModifierTest.java
-/home/appsec/Downloads/BurpSuite/Extensions/Payload/src/test/java/com/cytonn/montoya/payloadextractor/replay/ReplayEngineTest.java
-/home/appsec/Downloads/BurpSuite/Extensions/Payload/src/test/java/com/cytonn/montoya/payloadextractor/testutil/FakeHttp.java
-/home/appsec/Downloads/BurpSuite/Extensions/Payload/src/test/java/com/cytonn/montoya/payloadextractor/testutil/FakeHttpRequest.java
-/home/appsec/Downloads/BurpSuite/Extensions/Payload/src/test/java/com/cytonn/montoya/payloadextractor/ui/panels/FieldReorderUtilTest.java
-/home/appsec/Downloads/BurpSuite/Extensions/Payload/src/test/java/com/cytonn/montoya/payloadextractor/util/JsonNodeTest.java

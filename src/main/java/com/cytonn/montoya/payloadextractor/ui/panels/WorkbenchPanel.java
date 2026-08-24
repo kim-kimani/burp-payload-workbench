@@ -214,6 +214,20 @@ public final class WorkbenchPanel extends JPanel implements WorkbenchHooks {
         return new ArrayList<>(workingFields);
     }
 
+    /**
+     * Loads a request/response (typically from the Intercept tab's "Send to Replay") and, if any
+     * detected field looks interesting (non-generic category), immediately opens the Replay
+     * configuration dialog for it - otherwise just lands in the Workbench like a normal open.
+     */
+    public void openInWorkbenchAndReplay(HttpRequestResponse rr) {
+        openInWorkbench(rr);
+        Optional<ParsedField> target = workingFields.stream().filter(f -> !"GENERIC".equals(f.category())).findFirst();
+        if (target.isEmpty() && !workingFields.isEmpty()) {
+            target = Optional.of(workingFields.get(0));
+        }
+        target.ifPresent(this::onReplayRequested);
+    }
+
     // ---------------------------------------------------------------- grouping / rendering
 
     private String groupKeyOf(ParsedField f) {
@@ -419,10 +433,12 @@ public final class WorkbenchPanel extends JPanel implements WorkbenchHooks {
             responseTabs.setSelectedIndex(1);
             status = (int) result.response().statusCode();
         }
+        Long sizeBytes = result.hasResponse() ? (long) result.response().toByteArray().length() : null;
         for (ParsedField f : workingFields) {
             if (f.isDirty() || f.manuallyAdded()) {
                 state.historyManager().record(HistoryEntry.of(HistoryEntry.Action.VALUE_CHANGED, f.name(), f.location(),
-                        f.originalValue(), f.currentValue(), "sent", System.currentTimeMillis(), host, status));
+                        f.originalValue(), f.currentValue(), "sent", System.currentTimeMillis(), host, status)
+                        .withResponseSizeBytes(sizeBytes));
             }
         }
         // request+response awareness: learn values seen in the response too, same scope gating as auto-remember-on-load.

@@ -27,7 +27,11 @@ public final class PayloadExtractorExtension implements BurpExtension {
         });
 
         api.userInterface().registerContextMenuItemsProvider(new ContextMenuProvider(state));
+        // Registration order matters: passive learning always sees traffic first, so payload
+        // collection keeps working exactly as before even while Intercept is holding/dropping
+        // messages further down the handler chain.
         api.http().registerHttpHandler(new PassiveTrafficListener(state));
+        api.http().registerHttpHandler(state.interceptEngine());
 
         api.extension().registerUnloadingHandler(state::persistAll);
 

@@ -5,6 +5,52 @@ and replaying payloads/values in HTTP requests and responses — the
 **Observe → Extract → Remember → Categorize → Modify → Generate → Replay → Analyze** workflow, all
 from one tab.
 
+## What's new in v1.5.0
+
+**Phase 1 of a large "turn this into an interception/analysis platform" spec.** This release adds a
+genuine Intercept tab and an Automatic Modification Engine, built on real Montoya HTTP APIs (not
+simulated UI clicks), plus a consistency pass on response-size display. It intentionally does **not**
+attempt the full spec in one release — see "Deferred to a future phase" below for what's next and why.
+
+- **New Intercept tab** (first tab, before Workbench): a master ON/OFF switch with independent
+  **Intercept Requests** / **Intercept Responses** checkboxes, a sortable/filterable **request
+  history table** (ID, Host, Path, Method, Status, Response Size, Time, Timestamp), search/filter by
+  method/status/pinned, pin/tag/note per row, and a 50/50 request/response editor pair that **reuses
+  the existing Workbench editor components** (`createHttpRequestEditor`/`createHttpResponseEditor`).
+- **Real interception**, not a UI simulation: `InterceptEngine implements HttpHandler` and blocks the
+  calling Burp network thread on a `CompletableFuture` until you act, so held traffic is genuinely
+  paused. Actions: **Forward**, **Forward & Edit**, **Drop** (request-phase only — Montoya's response
+  action has no drop), **Send to Replay**, **Send to Workbench**, **Clear**. The existing passive
+  payload-learning listener is registered before the new intercept handler, so learning traffic is
+  never starved or blocked by an intercept hold.
+- **Conditional interception / "Break On" rules** (`Rules...` dialog): match by host/path/method,
+  status code (`500`, `>399`, `<300`, ...), header name/value, cookie name, parameter name, body
+  contains (plain or regex), response size threshold, or "new endpoint"/"new parameter" - with
+  one-click presets for the common cases (Status=500, Status=403, response contains "admin", request
+  contains "userId", new endpoint, new parameter, response size > 100 KB). An empty rule list means
+  intercept everything (subject to the master/direction checkboxes).
+- **Automatic Modification Engine** (`Rules...` under "Automatic Editor"): an ordered, individually
+  enable/disable-able list of deterministic find/replace rules (e.g. `555 -> 666`), each scoped by
+  request/response direction, message location (Path, Query, Headers, Cookies, JSON Body, Form Data,
+  Raw Body, Response Headers, Response Body, or Anywhere), host/path glob scope, and optional regex -
+  with a live preview in the editor and **"Create Rule from Selection"** (right-click selected text in
+  either editor to seed a new rule from it).
+- **Response-size consistency pass**: the same human-readable formatter (`512 B` / `1.4 KB` / `1.2
+  MB`) now backs Intercept's history table, the Replay results table, History, and History's detail
+  view - not just one screen.
+- Everything new here persists across Burp restarts using the same JSON-in-`PersistedObject` pattern
+  already used for AI settings and the scope filter - no new persistence mechanism was introduced.
+
+**Deferred to a future phase** (from the same spec, not implemented in v1.5.0): Variables & value
+tracking (`{{USER_ID}}`, generators), request mutation/variation testing, response diffing/analysis,
+a full visual overhaul of Replay to match Workbench styling, Identity Profiles + multi-identity
+replay, an Authorization Matrix, an Application Mapper, request relationship/timeline view,
+multi-step Workflow replay, business-logic/state tracking, broader traffic management (tags/favorites/
+hide-static-assets), security header/cookie change monitoring, race-condition testing, response
+override presets, and a global "Send To" context menu everywhere. These are substantial features in
+their own right (collectively comparable to Burp's own Proxy + Intruder + Repeater), and are best
+tackled as their own follow-up passes rather than one release.
+
 ## What's new in v1.4.0
 
 A redesign pass driven directly by screenshots of an earlier, more polished build, plus a real bug

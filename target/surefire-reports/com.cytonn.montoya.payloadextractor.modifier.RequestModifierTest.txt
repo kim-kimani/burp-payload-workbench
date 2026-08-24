@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.cytonn.montoya.payloadextractor.modifier.RequestModifierTest
--------------------------------------------------------------------------------
-Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.020 s -- in com.cytonn.montoya.payloadextractor.modifier.RequestModifierTest

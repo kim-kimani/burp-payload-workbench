@@ -20,6 +20,7 @@ public final class MainPanel extends JPanel {
 
     private final ExtensionState state;
     private final JTabbedPane tabs = new JTabbedPane();
+    private final InterceptPanel interceptPanel;
     private final WorkbenchPanel workbenchPanel;
     private final CollectionsPanel collectionsPanel;
     private final HistoryPanel historyPanel;
@@ -31,6 +32,7 @@ public final class MainPanel extends JPanel {
         super(new BorderLayout());
         this.state = state;
 
+        interceptPanel = new InterceptPanel(state);
         workbenchPanel = new WorkbenchPanel(state);
         collectionsPanel = new CollectionsPanel(state);
         historyPanel = new HistoryPanel(state);
@@ -39,6 +41,7 @@ public final class MainPanel extends JPanel {
 
         add(buildTopBar(), BorderLayout.NORTH);
 
+        tabs.addTab("Intercept", interceptPanel);
         tabs.addTab("Workbench", workbenchPanel);
         tabs.addTab("Payload Collections", collectionsPanel);
         tabs.addTab("History", historyPanel);
@@ -132,6 +135,12 @@ public final class MainPanel extends JPanel {
     /** Loads a request/response into the Workbench and switches to it - the target of the context-menu action and any future "open" entry points. */
     public void openInWorkbench(HttpRequestResponse requestResponse) {
         workbenchPanel.openInWorkbench(requestResponse);
+        tabs.setSelectedComponent(workbenchPanel);
+    }
+
+    /** Loads a request/response into the Workbench and immediately opens Replay for its first interesting field - the target of Intercept's "Send to Replay". */
+    public void openInWorkbenchAndReplay(HttpRequestResponse requestResponse) {
+        workbenchPanel.openInWorkbenchAndReplay(requestResponse);
         tabs.setSelectedComponent(workbenchPanel);
     }
 }
