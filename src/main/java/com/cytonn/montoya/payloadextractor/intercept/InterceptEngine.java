@@ -75,7 +75,27 @@ public final class InterceptEngine implements HttpHandler {
     public boolean isInterceptResponses() { return interceptResponses; }
     public void setInterceptResponses(boolean v) { this.interceptResponses = v; }
 
+    /**
+     * Clears every non-pinned history row. Any of them still WAITING on a Forward/Drop decision is
+     * forwarded as-is first (same "don't leave the analyst's own traffic hanging" philosophy as
+     * {@link #forwardAllPending()}) - otherwise clearing the list out from under a held message
+     * would abandon its {@code CompletableFuture} forever and leave Burp's network thread (and
+     * whatever request/browser is waiting on it) blocked indefinitely.
+     */
     public void clearHistory() {
+        for (InterceptedMessage m : history) {
+            if (m.isPinned()) {
+                continue;
+            }
+            CompletableFuture<InterceptDecision> pending = m.pendingDecision();
+            if (pending != null && !pending.isDone()) {
+                if (m.holdPhase() == InterceptedMessage.HoldPhase.REQUEST) {
+                    pending.complete(InterceptDecision.forwardRequest(m.currentRequest()));
+                } else if (m.holdPhase() == InterceptedMessage.HoldPhase.RESPONSE) {
+                    pending.complete(InterceptDecision.forwardResponse(m.currentResponse()));
+                }
+            }
+        }
         history.removeIf(m -> !m.isPinned());
     }
 

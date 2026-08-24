@@ -28,9 +28,13 @@ import java.util.regex.PatternSyntaxException;
 
 /**
  * "Intercept": a genuine Montoya-native request/response hold point (see {@link InterceptEngine}),
- * a searchable/sortable REQUEST HISTORY of every message that passes through it, and 50/50
- * Request/Response editors reusing the same Montoya editor components the Workbench uses. Sits
- * immediately before the Workbench tab in {@link MainPanel}.
+ * a searchable/sortable pending-action queue - only messages still waiting on Forward/Drop are
+ * shown; one disappears the moment it's forwarded or dropped, exactly like Burp's own Proxy
+ * Intercept tab - and 50/50 Request/Response editors reusing the same Montoya editor components
+ * the Workbench uses. Sits immediately before the Workbench tab in {@link MainPanel}. The full log
+ * of every message ever seen (including already-resolved ones) still lives in
+ * {@code engine.history()} for other features (Track Value, etc.) - this panel just doesn't display
+ * the resolved rows any more.
  */
 public final class InterceptPanel extends JPanel implements InterceptEngine.Listener {
 
@@ -47,6 +51,7 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
     private final JComboBox<String> methodFilter = new JComboBox<>(new String[]{"Any method", "GET", "POST", "PUT", "PATCH", "DELETE"});
     private final JComboBox<String> statusFilter = new JComboBox<>(new String[]{"Any status", "2xx", "3xx", "4xx", "5xx"});
     private final JCheckBox pinnedOnlyBox = new JCheckBox("Pinned only");
+    private final JCheckBox onlyInScopeBox = new JCheckBox("Only in scope");
     private final JLabel countLabel = new JLabel(" ");
 
     private final JToggleButton masterToggle = new JToggleButton("INTERCEPT: OFF");
@@ -133,7 +138,7 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         for (InterceptedMessage m : engine.history()) {
             tableModel.addRow(m);
         }
-        updateCountLabel();
+        applyFilter();
         updateButtonStates();
     }
 
@@ -215,6 +220,8 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         bar.add(methodFilter);
         bar.add(statusFilter);
         bar.add(pinnedOnlyBox);
+        onlyInScopeBox.setToolTipText("Show only in-scope messages in this list - out-of-scope messages are still held/tracked exactly as before, just hidden here");
+        bar.add(onlyInScopeBox);
         return bar;
     }
 
@@ -286,6 +293,31 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         methodFilter.addActionListener(e -> apply.run());
         statusFilter.addActionListener(e -> apply.run());
         pinnedOnlyBox.addActionListener(e -> apply.run());
+        onlyInScopeBox.addActionListener(e -> apply.run());
+    }
+
+    /**
+     * This list is a pending-action queue, not a full traffic log: only messages still waiting on
+     * a Forward/Drop decision are ever shown here (the full history - including everything already
+     * resolved - stays available to other features like Track Value via {@code engine.history()}).
+     * Once a message is forwarded or dropped it disappears from this view on its own, the moment
+     * {@link InterceptEngine.Listener#onMessageUpdated} reports the new state.
+     */
+    private static boolean isPending(InterceptedMessage m) {
+        return m.holdPhase() != InterceptedMessage.HoldPhase.NONE
+                && m.pendingDecision() != null && !m.pendingDecision().isDone();
+    }
+
+    /** Burp's real target scope (same API {@code ExtensionState.isHostVisible} uses elsewhere) - a purely local, view-only filter that never touches which messages are actually held. */
+    private boolean isInBurpScope(String host) {
+        if (host == null || host.isBlank()) {
+            return false;
+        }
+        try {
+            return state.api().scope().isInScope("https://" + host + "/");
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     private void applyFilter() {
@@ -293,11 +325,14 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         String method = (String) methodFilter.getSelectedItem();
         String status = (String) statusFilter.getSelectedItem();
         boolean pinnedOnly = pinnedOnlyBox.isSelected();
+        boolean onlyInScope = onlyInScopeBox.isSelected();
 
         sorter.setRowFilter(new RowFilter<>() {
             @Override
             public boolean include(Entry<? extends InterceptTableModel, ? extends Integer> entry) {
                 InterceptedMessage m = entry.getModel().rowAt(entry.getIdentifier());
+                if (!isPending(m)) return false;
+                if (onlyInScope && !isInBurpScope(m.host())) return false;
                 if (pinnedOnly && !m.isPinned()) return false;
                 if (method != null && !method.startsWith("Any") && !method.equalsIgnoreCase(m.method())) return false;
                 if (status != null && !status.startsWith("Any")) {
@@ -326,19 +361,21 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         if (selected == null || selected.pendingDecision() == null || selected.pendingDecision().isDone()) {
             return;
         }
+        InterceptedMessage handled = selected;
         InterceptDecision decision;
-        if (selected.holdPhase() == InterceptedMessage.HoldPhase.REQUEST) {
-            HttpRequest req = useEditorContent ? requestEditor.getRequest() : selected.currentRequest();
+        if (handled.holdPhase() == InterceptedMessage.HoldPhase.REQUEST) {
+            HttpRequest req = useEditorContent ? requestEditor.getRequest() : handled.currentRequest();
             if (useEditorContent) {
                 // Forward & Edit commits whatever the analyst typed, including any {{VARIABLE}} placeholders - resolve them now, right before the request actually goes out.
                 req = VariableResolver.resolveInRequest(req, state.variableStore());
             }
             decision = InterceptDecision.forwardRequest(req);
         } else {
-            HttpResponse resp = useEditorContent ? responseEditor.getResponse() : selected.currentResponse();
+            HttpResponse resp = useEditorContent ? responseEditor.getResponse() : handled.currentResponse();
             decision = InterceptDecision.forwardResponse(resp);
         }
-        selected.pendingDecision().complete(decision);
+        handled.pendingDecision().complete(decision);
+        selectNextPendingRow(handled);
     }
 
     private void drop() {
@@ -346,8 +383,42 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
             return;
         }
         if (selected.pendingDecision() != null && !selected.pendingDecision().isDone()) {
-            selected.pendingDecision().complete(InterceptDecision.drop());
+            InterceptedMessage handled = selected;
+            handled.pendingDecision().complete(InterceptDecision.drop());
+            selectNextPendingRow(handled);
         }
+    }
+
+    /**
+     * "Take me to the next waiting request or response": after acting on {@code handled}, jump the
+     * selection to whichever other still-pending row comes next in the visible (filtered/sorted)
+     * order, wrapping around, so working through a queue of held messages never requires manually
+     * re-clicking the list. {@code handled} itself is skipped even though its own removal from the
+     * view (triggered by the engine's async {@code onMessageUpdated}) may not have landed yet.
+     */
+    private void selectNextPendingRow(InterceptedMessage handled) {
+        int total = table.getRowCount();
+        if (total == 0) {
+            table.clearSelection();
+            return;
+        }
+        int handledViewRow = -1;
+        for (int viewRow = 0; viewRow < total; viewRow++) {
+            if (tableModel.rowAt(table.convertRowIndexToModel(viewRow)).id() == handled.id()) {
+                handledViewRow = viewRow;
+                break;
+            }
+        }
+        for (int offset = 1; offset <= total; offset++) {
+            int candidateView = ((handledViewRow < 0 ? 0 : handledViewRow) + offset) % total;
+            InterceptedMessage candidate = tableModel.rowAt(table.convertRowIndexToModel(candidateView));
+            if (candidate.id() != handled.id() && isPending(candidate)) {
+                table.setRowSelectionInterval(candidateView, candidateView);
+                table.scrollRectToVisible(table.getCellRect(candidateView, 0, true));
+                return;
+            }
+        }
+        table.clearSelection();
     }
 
     private void sendToReplay() {
@@ -407,8 +478,17 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
 
     private void deleteSelectedRow() {
         if (selected == null) return;
-        engine.history().remove(selected);
+        InterceptedMessage handled = selected;
+        if (handled.pendingDecision() != null && !handled.pendingDecision().isDone()) {
+            // Still holding Burp's network thread - forward it as-is first so deleting the row can never leave that thread (and whatever's waiting on it) blocked forever.
+            InterceptDecision decision = handled.holdPhase() == InterceptedMessage.HoldPhase.RESPONSE
+                    ? InterceptDecision.forwardResponse(handled.currentResponse())
+                    : InterceptDecision.forwardRequest(handled.currentRequest());
+            handled.pendingDecision().complete(decision);
+        }
+        engine.history().remove(handled);
         reload();
+        selectNextPendingRow(handled);
     }
 
     private void clearHistory() {
@@ -486,6 +566,8 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
 
     private void refreshEditorsFromSelected() {
         if (selected == null) {
+            requestEditor.setRequest(HttpRequest.httpRequest());
+            responseEditor.setResponse(HttpResponse.httpResponse());
             return;
         }
         if (selected.currentRequest() != null) {
@@ -502,10 +584,15 @@ public final class InterceptPanel extends JPanel implements InterceptEngine.List
         forwardButton.setEnabled(waitingRequest || waitingResponse);
         forwardEditButton.setEnabled(waitingRequest || waitingResponse);
         dropButton.setEnabled(waitingRequest);
+
+        // Outbound (request, about to leave for the server) vs inbound (response, on its way back to the client) - same idea as a network diagram's arrows.
+        String arrow = waitingResponse ? "←" : "→";
+        forwardButton.setText(arrow + " Forward");
+        forwardEditButton.setText(arrow + " Forward & Edit");
     }
 
     private void updateCountLabel() {
-        countLabel.setText(table.getRowCount() + " of " + tableModel.getRowCount() + " message(s) shown");
+        countLabel.setText(table.getRowCount() + " pending (" + tableModel.getRowCount() + " logged in total)");
     }
 
     // ---------------------------------------------------------------- InterceptEngine.Listener

@@ -5,6 +5,31 @@ and replaying payloads/values in HTTP requests and responses — the
 **Observe → Extract → Remember → Categorize → Modify → Generate → Replay → Analyze** workflow, all
 from one tab.
 
+## What's new in v1.8.0
+
+**Intercept UX fixes, from direct feedback: the tab now behaves like a real pending-action queue,
+not a full traffic log.**
+
+- **Intercept's message list now shows pending messages only.** The moment a message is forwarded
+  or dropped, it disappears from the list on its own - the same behavior as Burp's own Proxy
+  Intercept tab. Everything still gets logged internally (Track Value and other features still see
+  the full history) - this list just stops showing you things there's nothing left to decide on.
+- **New "Only in scope" filter checkbox.** Turning it on hides out-of-scope messages from this list;
+  out-of-scope messages already held elsewhere are completely unaffected - still tracked, still
+  forward/drop-able if you clear the filter - this only changes what's *displayed*.
+- **Forward now auto-advances to the next pending message.** Click Forward, Forward & Edit, or Drop
+  and the selection jumps straight to the next still-waiting request or response, so working
+  through a queue of held traffic doesn't require re-clicking the list every time.
+- **Forward/Forward & Edit buttons now show a direction arrow** - "→ Forward" while holding a
+  request (outbound, on its way to the server) and "← Forward" while holding a response (inbound,
+  on its way back to the client) - so it's obvious at a glance which leg of the round trip you're
+  looking at.
+- **Safety fix uncovered while making this change**: clearing the list (or deleting a single pending
+  row) could previously abandon a still-held message's decision forever, leaving the real underlying
+  network request permanently stuck. Both actions now forward any still-pending, non-pinned message
+  as-is first - the same safety net the existing "Forward All" button already used - so nothing gets
+  silently left hanging.
+
 ## What's new in v1.7.0
 
 **Phase 3 of the interception/analysis-platform spec: Response Analysis (item 7) and the Replay
